@@ -18,6 +18,7 @@ import { getDomainType } from './lib/getDomainType'
 import { DomainType, PasswordContent, UsernameContent } from './types'
 import { getConfig } from './config'
 import { isBannedUrl, setBannedMessage } from './content-lib/bannedMessage'
+import { setupChatGPTMonitoring } from './content-lib/chatgptMonitor'
 
 // wait for page to load before doing anything
 function ready(callbackFunc: () => void) {
@@ -156,8 +157,7 @@ async function checkIfUrlBanned() {
 ready(() => {
   console.log('[PhishCatch Content] 🎣 Content script loaded on:', window.location.hostname)
 
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  setTimeout(async () => {
+  void (async () => {
     const domainType = await getDomainType(window.location.hostname)
     console.log('[PhishCatch Content] Domain type:', {
       hostname: window.location.hostname,
@@ -170,21 +170,8 @@ ready(() => {
       document.addEventListener('keydown', entepriseFormSubmissionTrigger, true)
       void checkDomHash()
 
-      // Special handling for ChatGPT
-      // Check for exact ChatGPT domains to avoid false positives (e.g., not-chatgpt.com)
-      const hostname = window.location.hostname
-      const isChatGPTDomain = hostname === 'chatgpt.com' ||
-        hostname === 'chat.openai.com' ||
-        hostname === 'openai.com' ||
-        hostname.endsWith('.chatgpt.com') ||
-        hostname.endsWith('.chat.openai.com') ||
-        hostname.endsWith('.openai.com')
-      
-      if (isChatGPTDomain) {
-        console.log('[PhishCatch Content] 🤖 ChatGPT detected! Enabling query logging')
-        const { setupChatGPTMonitoring } = await import('./content-lib/chatgptMonitor')
-        setupChatGPTMonitoring()
-      }
+      console.log('[PhishCatch Content] 🤖 Enterprise domain detected! Enabling query logging')
+      setupChatGPTMonitoring()
     } else if (domainType === DomainType.DANGEROUS) {
       console.log('[PhishCatch Content] Setting up DANGEROUS domain monitoring')
       document.addEventListener('input', inputChangedTrigger, false)
@@ -192,7 +179,7 @@ ready(() => {
     } else {
       console.log('[PhishCatch Content] Domain ignored - no monitoring')
     }
-  }, 1500)
+  })()
 })
 
 checkIfUrlBanned()

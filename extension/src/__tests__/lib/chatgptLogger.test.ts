@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { getChatGPTQueryLog, saveChatGPTQuery, clearQueryLogs } from '../lib/chatgptLogger'
-import type { ChatGPTQueryContent } from '../types'
+import { getChatGPTQueryLog, saveChatGPTQuery, clearQueryLogs } from '../../lib/chatgptLogger'
+import type { ChatGPTQueryContent } from '../../types'
 
 // Mock chrome.storage for testing
 const mockStorage: Record<string, any> = {}

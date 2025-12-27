@@ -32,6 +32,7 @@ import { getDomainType } from './lib/getDomainType'
 import { getHostFromUrl } from './lib/getHostFromUrl'
 import { timedCleanup } from './lib/timedCleanup'
 import { addNotitication, handleNotificationClick } from './lib/handleNotificationClick'
+import { saveChatGPTQuery } from './lib/chatgptLogger'
 
 export async function receiveMessage(message: PageMessage): Promise<void> {
   console.log('[PhishCatch BG] Received message:', message.msgtype, message)
@@ -82,7 +83,6 @@ export async function receiveMessage(message: PageMessage): Promise<void> {
         timestamp: content.timestamp,
         url: content.url
       })
-      const { saveChatGPTQuery } = await import('./lib/chatgptLogger')
       void saveChatGPTQuery(content)
       break
     }
