@@ -31,7 +31,10 @@ module.exports = {
   optimization: {
     splitChunks: {
       name: 'vendor',
-      chunks: 'initial',
+      chunks(chunk) {
+        // Don't split chunks for background service worker (Manifest V3 requirement)
+        return chunk.name !== 'background';
+      },
     },
   },
   module: {
