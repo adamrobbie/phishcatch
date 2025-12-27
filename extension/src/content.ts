@@ -69,9 +69,12 @@ async function scrapeUsernames(): Promise<string | undefined> {
 
 // Send the password to the background script to be hashed and compared
 async function checkPassword(password: string, save: boolean) {
+  console.log('[PhishCatch Content] Password detected:', { length: password.length, save })
+
   let username: string | undefined
   if (save) {
     username = await scrapeUsernames()
+    console.log('[PhishCatch Content] Scraped username:', username)
   }
 
   const content: PasswordContent = {
@@ -82,6 +85,8 @@ async function checkPassword(password: string, save: boolean) {
     referrer: await getSanitizedUrl(document.referrer),
     timestamp: new Date().getTime(),
   }
+
+  console.log('[PhishCatch Content] Sending password to background for processing')
   chrome.runtime.sendMessage({
     msgtype: 'password',
     content,
@@ -149,15 +154,43 @@ async function checkIfUrlBanned() {
 }
 
 ready(() => {
+  console.log('[PhishCatch Content] 🎣 Content script loaded on:', window.location.hostname)
+
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   setTimeout(async () => {
-    if ((await getDomainType(window.location.hostname)) === DomainType.ENTERPRISE) {
+    const domainType = await getDomainType(window.location.hostname)
+    console.log('[PhishCatch Content] Domain type:', {
+      hostname: window.location.hostname,
+      type: domainType === DomainType.ENTERPRISE ? 'ENTERPRISE' : domainType === DomainType.DANGEROUS ? 'DANGEROUS' : 'OTHER'
+    })
+
+    if (domainType === DomainType.ENTERPRISE) {
+      console.log('[PhishCatch Content] Setting up ENTERPRISE domain monitoring')
       document.addEventListener('focusout', enterpriseFocusOutTrigger)
       document.addEventListener('keydown', entepriseFormSubmissionTrigger, true)
       void checkDomHash()
-    } else if ((await getDomainType(window.location.hostname)) === DomainType.DANGEROUS) {
+
+      // Special handling for ChatGPT
+      // Check for exact ChatGPT domains to avoid false positives (e.g., not-chatgpt.com)
+      const hostname = window.location.hostname
+      const isChatGPTDomain = hostname === 'chatgpt.com' ||
+        hostname === 'chat.openai.com' ||
+        hostname === 'openai.com' ||
+        hostname.endsWith('.chatgpt.com') ||
+        hostname.endsWith('.chat.openai.com') ||
+        hostname.endsWith('.openai.com')
+      
+      if (isChatGPTDomain) {
+        console.log('[PhishCatch Content] 🤖 ChatGPT detected! Enabling query logging')
+        const { setupChatGPTMonitoring } = await import('./content-lib/chatgptMonitor')
+        setupChatGPTMonitoring()
+      }
+    } else if (domainType === DomainType.DANGEROUS) {
+      console.log('[PhishCatch Content] Setting up DANGEROUS domain monitoring')
       document.addEventListener('input', inputChangedTrigger, false)
       void checkDomHash()
+    } else {
+      console.log('[PhishCatch Content] Domain ignored - no monitoring')
     }
   }, 1500)
 })

@@ -18,6 +18,7 @@ import {
   UsernameContent,
   PasswordContent,
   DomstringContent,
+  ChatGPTQueryContent,
   PasswordHandlingReturnValue,
   DomainType,
   AlertTypes,
@@ -33,14 +34,24 @@ import { timedCleanup } from './lib/timedCleanup'
 import { addNotitication, handleNotificationClick } from './lib/handleNotificationClick'
 
 export async function receiveMessage(message: PageMessage): Promise<void> {
+  console.log('[PhishCatch BG] Received message:', message.msgtype, message)
+
   switch (message.msgtype) {
     case 'debug': {
+      console.log('[PhishCatch BG] Debug message received')
       break
     }
     case 'username': {
       const content = <UsernameContent>message.content
+      const domainType = await getDomainType(getHostFromUrl(content.url))
+      console.log('[PhishCatch BG] Username entry detected:', {
+        username: content.username,
+        url: content.url,
+        domainType: domainType === DomainType.ENTERPRISE ? 'ENTERPRISE' : 'OTHER'
+      })
 
-      if ((await getDomainType(getHostFromUrl(content.url))) === DomainType.ENTERPRISE) {
+      if (domainType === DomainType.ENTERPRISE) {
+        console.log('[PhishCatch BG] Saving username for enterprise domain')
         void saveUsername(content.username)
         void saveDOMHash(content.dom, content.url)
       }
@@ -49,13 +60,30 @@ export async function receiveMessage(message: PageMessage): Promise<void> {
     case 'password': {
       const content = <PasswordContent>message.content
       if (content.password) {
+        console.log('[PhishCatch BG] Password entry detected:', {
+          url: content.url,
+          passwordLength: content.password.length,
+          save: content.save
+        })
         void handlePasswordEntry(content)
       }
       break
     }
     case 'domstring': {
       const content = <DomstringContent>message.content
+      console.log('[PhishCatch BG] DOM hash check requested for:', content.url)
       void checkDOMHash(content.dom, content.url)
+      break
+    }
+    case 'chatgpt-query': {
+      const content = <ChatGPTQueryContent>message.content
+      console.log('[PhishCatch BG] 💬 ChatGPT query logged:', {
+        length: content.query.length,
+        timestamp: content.timestamp,
+        url: content.url
+      })
+      const { saveChatGPTQuery } = await import('./lib/chatgptLogger')
+      void saveChatGPTQuery(content)
       break
     }
   }
@@ -66,20 +94,38 @@ export async function handlePasswordEntry(message: PasswordContent) {
   const url = message.url
   const host = getHostFromUrl(url)
   const password = message.password
+  const domainType = await getDomainType(host)
 
-  if ((await getDomainType(host)) === DomainType.ENTERPRISE) {
+  console.log('[PhishCatch BG] Handling password entry:', {
+    host,
+    domainType: domainType === DomainType.ENTERPRISE ? 'ENTERPRISE' : domainType === DomainType.DANGEROUS ? 'DANGEROUS' : 'OTHER',
+    save: message.save
+  })
+
+  if (domainType === DomainType.ENTERPRISE) {
     if (message.save) {
+      console.log('[PhishCatch BG] Saving password hash for enterprise domain:', host)
       await hashAndSavePassword(password, message.username, host)
       return PasswordHandlingReturnValue.EnterpriseSave
     }
+    console.log('[PhishCatch BG] Enterprise domain but not saving')
     return PasswordHandlingReturnValue.EnterpriseNoSave
-  } else if ((await getDomainType(host)) === DomainType.DANGEROUS) {
+  } else if (domainType === DomainType.DANGEROUS) {
+    console.log('[PhishCatch BG] Checking for password reuse on dangerous domain:', host)
     const hashData = await getHashDataIfItExists(password)
     if (hashData) {
+      console.log('[PhishCatch BG] ⚠️ PASSWORD REUSE DETECTED!', {
+        dangerousSite: host,
+        associatedWith: hashData.hostname,
+        username: hashData.username
+      })
       await handlePasswordLeak(message, hashData)
       return PasswordHandlingReturnValue.ReuseAlert
+    } else {
+      console.log('[PhishCatch BG] No password reuse detected')
     }
   } else {
+    console.log('[PhishCatch BG] Ignored domain:', host)
     return PasswordHandlingReturnValue.IgnoredDomain
   }
 
@@ -121,12 +167,25 @@ async function handlePasswordLeak(message: PasswordContent, hashData: PasswordHa
 }
 
 function setup() {
+  console.log('[PhishCatch BG] 🎣 Background service worker starting...')
+
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   chrome.runtime.onMessage.addListener(receiveMessage)
   chrome.notifications.onButtonClicked.addListener(handleNotificationClick)
 
   void showCheckmarkIfEnterpriseDomain()
   timedCleanup()
+
+  // Log configuration on startup
+  void getConfig().then((config) => {
+    console.log('[PhishCatch BG] Configuration loaded:', {
+      enterpriseDomains: config.enterprise_domains,
+      displayAlerts: config.display_reuse_alerts,
+      server: config.phishcatch_server || 'none (local only)'
+    })
+  })
+
+  console.log('[PhishCatch BG] ✅ Extension initialized')
 }
 
 setup()

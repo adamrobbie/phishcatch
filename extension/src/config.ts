@@ -26,8 +26,13 @@ const defaults: Prefs = {
   data_expiry: 30,
   display_reuse_alerts: true,
   enable_debug_gui: true,
-  enterprise_domains: [],
-  expire_hash_on_use: true,
+  enterprise_domains: [
+    'chat.openai.com',
+    'chatgpt.com',
+    'openai.com',
+    'platform.openai.com',
+  ],
+  expire_hash_on_use: false, // Keep hashes for testing
   faq_link: null,
   hash_truncation_amount: 0,
   ignored_domains: [],
@@ -81,7 +86,7 @@ export async function getConfigOverride(): Promise<Prefs | false> {
         Object.keys(data.configOverride).forEach((key) => {
           const value = data.configOverride[key]
           if (value || value === false) {
-            ;(prefs as any)[key] = value
+            ; (prefs as any)[key] = value
           }
         })
         resolve(prefs)
@@ -100,7 +105,7 @@ async function getManagedPreferences(): Promise<Prefs> {
       Object.keys(storedPrefs).forEach((key) => {
         const value = (storedPrefs as any)[key]
         if (value || value === false) {
-          ;(prefs as any)[key] = value
+          ; (prefs as any)[key] = value
         }
       })
 

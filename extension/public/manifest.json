@@ -9,7 +9,6 @@
   "storage": {
     "managed_schema": "schema.json"
   },
-  "externally_connectable": {},
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
@@ -25,7 +24,9 @@
   "web_accessible_resources": [
     {
       "resources": [],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "content_scripts": [

@@ -39,8 +39,22 @@ export enum UrlSanitizationEnum {
 }
 
 export interface PageMessage {
-  msgtype: 'username' | 'password' | 'debug' | 'domstring'
-  content: PasswordContent | UsernameContent | DomstringContent | string
+  msgtype: 'username' | 'password' | 'debug' | 'domstring' | 'chatgpt-query'
+  content: PasswordContent | UsernameContent | DomstringContent | ChatGPTQueryContent | string
+}
+
+export interface ChatGPTQueryContent {
+  query: string
+  timestamp: number
+  url: string
+}
+
+export interface ChatGPTQueryLog {
+  id: string
+  timestamp: number
+  query: string
+  queryLength: number
+  url: string
 }
 
 export interface PasswordContent {
